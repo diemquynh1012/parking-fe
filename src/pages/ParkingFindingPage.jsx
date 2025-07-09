@@ -8,6 +8,9 @@ import Footer from '../components/Footer';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import LocationSelector from '../components/LocationSelector';
+import ReservationModal from '../components/ReservationModal';
+
+ 
 
 const ParkingFinding = () => {
     const location = useLocation();
@@ -33,7 +36,13 @@ const ParkingFinding = () => {
             stars: 4.0,
             distance: 1.2, // in km
             totalPrice: 60000, // in VND
-        }])
+        }]);
+    const [selectedParkingLot, setSelectedParkingLot] = useState(null);
+    const [showReservationModal, setShowReservationModal] = useState(false);
+    const [vehicles, setVehicles] = useState([
+        { id: 1, name: "Toyota Camry", type: "Ô tô", plateNumber: "29A-12345" },
+        { id: 2, name: "Honda Wave", type: "Xe máy", plateNumber: "29B-67890" }
+    ]);
 
     useEffect(() => {
         const loadSavedLocation = () => {
@@ -259,6 +268,15 @@ const ParkingFinding = () => {
                                                                         Đến bãi đỗ
                                                                     </button>
                                                                     <button
+                                                                        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
+                                                                        onClick={() => {
+                                                                            setSelectedParkingLot(store);
+                                                                            setShowReservationModal(true);
+                                                                        }}
+                                                                    >
+                                                                        Đặt chỗ
+                                                                    </button>
+                                                                    <button
                                                                         className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 transition-colors"
                                                                         onClick={() => {
                                                                             // TODO: Implement membership registration logic
@@ -301,6 +319,23 @@ const ParkingFinding = () => {
                     </div>
                 </div>
             </div>
+            
+            {/* Reservation Modal */}
+            <ReservationModal
+                isOpen={showReservationModal}
+                onClose={() => setShowReservationModal(false)}
+                parkingLot={selectedParkingLot}
+                vehicles={vehicles}
+                onReservationSuccess={() => {
+                    toast.success('Đặt chỗ thành công!');
+                    setShowReservationModal(false);
+                }}
+                onAddVehicle={() => {
+                    // TODO: Implement add vehicle functionality
+                    toast.info('Chức năng thêm phương tiện sẽ được phát triển');
+                }}
+            />
+            
             <Footer />
         </div>
     );

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-// // import Header from '../components/Header';
+import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import 'tailwindcss/tailwind.css';
 
 const BLOCKED = -1;
 const EMPTY = 0;
@@ -56,18 +56,13 @@ export default function ParkingDesignPage() {
         setCriteria(c => ({ ...c, [name]: value }));
     };
 
-    // Merge step 2 and 3: Generate on the fly, no step state after 1
-    React.useEffect(() => {
-        setResultGrid(grid);
-    }, [size, blocked, criteria]);
-
     // Color map for layout values
     const layoutColorMap = {
-        0: "#b03a3a", // Empty (blocked)
+        0: "#eeeeee", // Empty (blocked)
         1: "#9e9e9e", // Driveway
         2: "#2e7d32", // Horizontal stall
-        7: "#6a1b9a", // Exit gate
-        8: "#6a1b9a", // Entrance gate
+        7: "#b39ddb", // Exit gate (light purple)
+        8: "#4527a0", // Entrance gate (dark purple)
         9: "#b03a3a", // Blocked
     };
 
@@ -76,35 +71,80 @@ export default function ParkingDesignPage() {
         return (
             <div className="flex flex-wrap gap-4 mt-4 justify-center">
                 <div className="flex items-center space-x-2">
-                    <span className="inline-block w-5 h-5 rounded" style={{ background: "#b03a3a", border: "1px solid #ccc" }} />
-                    <span className="text-sm">Blocked/Empty</span>
+                    <span className="inline-block w-5 h-5 rounded" style={{ background: layoutColorMap[0], border: "1px solid #ccc" }} />
+                    <span className="text-sm">Empty</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                    <span className="inline-block w-5 h-5 rounded" style={{ background: "#9e9e9e", border: "1px solid #ccc" }} />
+                    <span className="inline-block w-5 h-5 rounded" style={{ background: layoutColorMap[9], border: "1px solid #ccc" }} />
+                    <span className="text-sm">Blocked</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                    <span className="inline-block w-5 h-5 rounded" style={{ background: layoutColorMap[1], border: "1px solid #ccc" }} />
                     <span className="text-sm">Driveway</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                    <span className="inline-block w-5 h-5 rounded" style={{ background: "#2e7d32", border: "1px solid #ccc" }} />
+                    <span className="inline-block w-5 h-5 rounded" style={{ background: layoutColorMap[2], border: "1px solid #ccc" }} />
                     <span className="text-sm">Stall</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                    <span className="inline-block w-5 h-5 rounded" style={{ background: "#6a1b9a", border: "1px solid #ccc" }} />
-                    <span className="text-sm">Entrance/Exit</span>
+                    <span className="inline-block w-5 h-5 rounded" style={{ background: layoutColorMap[8], border: "1px solid #ccc" }} />
+                    <span className="text-sm">Entrance</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                    <span className="inline-block w-5 h-5 rounded" style={{ background: layoutColorMap[7], border: "1px solid #ccc" }} />
+                    <span className="text-sm">Exit</span>
                 </div>
             </div>
         );
     }
 
-    // Entrance/exit state (for demo, default to center left/right)
-    const [entrance, setEntrance] = useState([Math.floor(size.rows / 2), 0]);
-    const [exitGate, setExitGate] = useState([Math.floor(size.rows / 2), size.cols - 1]);
+    // Entrance/exit state
+    // Default positions: entrance middle of first row, exit middle of last row
+    function getDefaultEntrances(laneType, rows, cols) {
+        if (laneType === "one-way") {
+            const mid = Math.floor(cols / 2);
+            return {
+                entrance: [0, mid],
+                exitGate: [0, mid],
+            };
+        } else {
+            const mid = Math.floor(cols / 2);
+            return {
+                entrance: [0, mid],
+                exitGate: [rows - 1, mid],
+            };
+        }
+    }
+
+    const [entrance, setEntrance] = useState(getDefaultEntrances(criteria.laneType, size.rows, size.cols).entrance);
+    const [exitGate, setExitGate] = useState(getDefaultEntrances(criteria.laneType, size.rows, size.cols).exitGate);
+    const [selectMode, setSelectMode] = useState(null);
     const [loading, setLoading] = useState(false);
+
+    // Reset entrance/exit when laneType or size changes
+    useEffect(() => {
+        const { entrance, exitGate } = getDefaultEntrances(criteria.laneType, size.rows, size.cols);
+        setEntrance(entrance);
+        setExitGate(exitGate);
+        setSelectMode(null);
+    }, [criteria.laneType, size.rows, size.cols]);
+
+    // Sync exit with entrance in one-way mode
+    useEffect(() => {
+        if (criteria.laneType === "one-way") {
+            setExitGate(entrance);
+        }
+    }, [entrance, criteria.laneType]);
+
+    // Merge step 2 and 3: Generate on the fly, no step state after 1
+    useEffect(() => {
+        setResultGrid(grid);
+    }, [size, blocked, criteria]);
 
     // Handle generate layout
     const handleGenerateLayout = async () => {
         setLoading(true);
         try {
-            // console.log(body)
             const body = {
                 rows: size.rows,
                 cols: size.cols,
@@ -113,7 +153,6 @@ export default function ParkingDesignPage() {
                 exit_gate: exitGate,
                 one_way: criteria.laneType === "one-way"
             };
-            console.log("Request body:", body);
             const res = await fetch("http://160.191.49.99:8000/optimize", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -132,9 +171,63 @@ export default function ParkingDesignPage() {
         setLoading(false);
     };
 
+    // UI for entrance/exit selection buttons
+    function EntranceExitButtons() {
+        if (criteria.laneType === "one-way") {
+            return (
+                <button
+                    className={`px-3 py-1 rounded border ${selectMode === "entrance" ? "bg-purple-800 text-white border-purple-800" : "bg-gray-100 border-gray-300"}`}
+                    onClick={() => setSelectMode(selectMode === "entrance" ? null : "entrance")}
+                    type="button"
+                >
+                    Set Entrance/Exit
+                </button>
+            );
+        }
+        return (
+            <div className="flex gap-2">
+                <button
+                    className={`px-3 py-1 rounded border ${selectMode === "entrance" ? "bg-purple-800 text-white border-purple-800" : "bg-gray-100 border-gray-300"}`}
+                    onClick={() => setSelectMode(selectMode === "entrance" ? null : "entrance")}
+                    type="button"
+                >
+                    Set Entrance
+                </button>
+                <button
+                    className={`px-3 py-1 rounded border ${selectMode === "exit" ? "bg-purple-400 text-white border-purple-400" : "bg-gray-100 border-gray-300"}`}
+                    onClick={() => setSelectMode(selectMode === "exit" ? null : "exit")}
+                    type="button"
+                >
+                    Set Exit
+                </button>
+            </div>
+        );
+    }
+
+    // Cell rendering logic for step 2 grid
+    function getCellType(r, c) {
+        if (entrance[0] === r && entrance[1] === c) {
+            return 8; // Entrance (priority)
+        }
+        if (criteria.laneType === "two-way" && exitGate[0] === r && exitGate[1] === c) {
+            return 7; // Exit
+        }
+        if (grid[r][c] === BLOCKED) {
+            return 9; // Blocked
+        }
+        return 0; // Empty
+    }
+
+    // Title for cell
+    function getCellTitle(r, c) {
+        if (entrance[0] === r && entrance[1] === c) return "Entrance";
+        if (criteria.laneType === "two-way" && exitGate[0] === r && exitGate[1] === c) return "Exit";
+        if (grid[r][c] === BLOCKED) return "Blocked";
+        return "Empty";
+    }
+
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-            {/* <Header /> */}
             <Navbar />
             <div className="flex flex-1 w-full">
                 <div className="w-[320px] bg-white shadow p-4 flex flex-col gap-4">
@@ -197,48 +290,63 @@ export default function ParkingDesignPage() {
                                 <input type="number" name="cellSize" min={16} max={64} value={criteria.cellSize} onChange={handleCriteriaChange} className="border ml-2 w-16" />
                             </label>
                             <div className="mt-4">
-                                <label>
-                                    Entrance (row,col):&nbsp;
-                                    <input
-                                        type="number"
-                                        min={0}
-                                        max={size.rows - 1}
-                                        value={entrance[0]}
-                                        onChange={e => setEntrance([Number(e.target.value), entrance[1]])}
-                                        className="border w-12"
-                                    />
-                                    ,
-                                    <input
-                                        type="number"
-                                        min={0}
-                                        max={size.cols - 1}
-                                        value={entrance[1]}
-                                        onChange={e => setEntrance([entrance[0], Number(e.target.value)])}
-                                        className="border w-12 ml-1"
-                                    />
-                                </label>
-                                <br />
-                                <label>
-                                    Exit (row,col):&nbsp;
-                                    <input
-                                        type="number"
-                                        min={0}
-                                        max={size.rows - 1}
-                                        value={exitGate[0]}
-                                        onChange={e => setExitGate([Number(e.target.value), exitGate[1]])}
-                                        className="border w-12"
-                                    />
-                                    ,
-                                    <input
-                                        type="number"
-                                        min={0}
-                                        max={size.cols - 1}
-                                        value={exitGate[1]}
-                                        onChange={e => setExitGate([exitGate[0], Number(e.target.value)])}
-                                        className="border w-12 ml-1"
-                                    />
-                                </label>
+                                <EntranceExitButtons />
                             </div>
+                            {selectMode && (
+                                <div className="text-sm text-purple-700 mt-2">
+                                    Click vào ô để chọn {criteria.laneType === "one-way" ? "Entrance/Exit" : selectMode === "entrance" ? "Entrance" : "Exit"}
+                                </div>
+                            )}
+                            <div className="mt-4 font-mono text-sm">
+                                Entrance: [{entrance[0]}, {entrance[1]}] <br />
+                                Exit: [{exitGate[0]}, {exitGate[1]}]
+                            </div>
+                            <div
+                                className="grid mt-4"
+                                style={{
+                                    gridTemplateColumns: `repeat(${size.cols}, 24px)`,
+                                    gridAutoRows: "24px",
+                                    gap: "2px",
+                                }}
+                            >
+                                {grid.map((row, r) =>
+                                    row.map((cell, c) => {
+                                        const cellType = getCellType(r, c);
+                                        return (
+                                            <div
+                                                key={`${r}-${c}`}
+                                                className={`rounded border cursor-pointer flex items-center justify-center`}
+                                                style={{
+                                                    background: layoutColorMap[cellType],
+                                                    width: 24,
+                                                    height: 24,
+                                                    color: cellType === 8 || cellType === 7 ? layoutColorMap[9] : undefined,
+                                                    borderWidth: (entrance[0] === r && entrance[1] === c) || (criteria.laneType === "two-way" && exitGate[0] === r && exitGate[1] === c) ? 2 : 1,
+                                                    borderColor: (entrance[0] === r && entrance[1] === c)
+                                                        ? "#4527a0"
+                                                        : (criteria.laneType === "two-way" && exitGate[0] === r && exitGate[1] === c)
+                                                        ? "#b39ddb"
+                                                        : "#ccc"
+                                                }}
+                                                onClick={() => {
+                                                    if (selectMode === "entrance") {
+                                                        setEntrance([r, c]);
+                                                        if (criteria.laneType === "one-way") {
+                                                            setExitGate([r, c]);
+                                                        }
+                                                        setSelectMode(null);
+                                                    } else if (selectMode === "exit" && criteria.laneType === "two-way") {
+                                                        setExitGate([r, c]);
+                                                        setSelectMode(null);
+                                                    }
+                                                }}
+                                                title={getCellTitle(r, c)}
+                                            />
+                                        );
+                                    })
+                                )}
+                            </div>
+                            <LayoutLegendBar />
                             <button
                                 className="bg-green-600 text-white px-4 py-2 rounded mt-6"
                                 onClick={handleGenerateLayout}
@@ -298,10 +406,10 @@ export default function ParkingDesignPage() {
                                                 key={`${r}-${c}`}
                                                 className="rounded border flex items-center justify-center text-xs font-bold"
                                                 style={{
-                                                    background: layoutColorMap[cell] || "#eeeeee",
+                                                    background: layoutColorMap[cell] || "#b03a3a",
                                                     width: criteria.cellSize,
                                                     height: criteria.cellSize,
-                                                    color: cell === 7 || cell === 8 ? "#fff" : undefined
+                                                    color: cell === 8 || cell === 7 ? layoutColorMap[9] : undefined
                                                 }}
                                             >
                                                 {/* Optionally show label */}
@@ -322,5 +430,3 @@ export default function ParkingDesignPage() {
         </div>
     );
 }
-
-

@@ -9,6 +9,7 @@ import { BasketProvider } from './context/BasketContext';
 
 import ParkingFinding from './pages/ParkingFindingPage';
 import ParkingDesign from './pages/ParkingDesignPage';
+import ParkingSubscription from './pages/ParkingSubscriptionPage';
 
 function App() {
   return (
@@ -18,9 +19,10 @@ function App() {
           <div className="font-sans">
             <Routes>
               <Route path="/" element={<ParkingFinding />} />
-              <Route path="/homepage" element={<ParkingFinding />} />
+              {/* <Route path="/homepage" element={<ParkingFinding />} /> */}
               <Route path="/design" element={<ParkingDesign />} />
               <Route path="/parking-finding" element={<ParkingFinding />} />
+              <Route path="/subscription" element={<ParkingSubscription />} />
               <Route path='/login' element={<LoginForm />} />
               <Route path='/register' element={<RegisterForm />} />
             </Routes>
